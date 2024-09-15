@@ -112,17 +112,17 @@ class HttpReadAloudService : BaseReadAloudService(),
         pageChanged = false
         exoPlayer.stop()
         if (!requestFocus()) return
-        if (contentList.isEmpty()) {
-            AppLog.putDebug("朗读列表为空")
-            ReadBook.readAloud()
-        } else {
-            super.play()
-            if (AppConfig.streamReadAloudAudio) {
-                downloadAndPlayAudiosStream()
-            } else {
-                downloadAndPlayAudios()
-            }
-        }
+//        if (contentList.isEmpty()) {
+//            AppLog.putDebug("朗读列表为空")
+//            ReadBook.readAloud()
+//        } else {
+//            super.play()
+//            if (AppConfig.streamReadAloudAudio) {
+//                downloadAndPlayAudiosStream()
+//            } else {
+//                downloadAndPlayAudios()
+//            }
+//        }
     }
 
     override fun playStop() {
@@ -131,13 +131,13 @@ class HttpReadAloudService : BaseReadAloudService(),
     }
 
     private fun updateNextPos() {
-        readAloudNumber += contentList[nowSpeak].length + 1 - paragraphStartPos
-        paragraphStartPos = 0
-        if (nowSpeak < contentList.lastIndex) {
-            nowSpeak++
-        } else {
-            nextChapter()
-        }
+//        readAloudNumber += contentList[nowSpeak].length + 1 - paragraphStartPos
+//        paragraphStartPos = 0
+//        if (nowSpeak < contentList.lastIndex) {
+//            nowSpeak++
+//        } else {
+//            nextChapter()
+//        }
     }
 
     private fun downloadAndPlayAudios() {
@@ -147,41 +147,41 @@ class HttpReadAloudService : BaseReadAloudService(),
             downloadTaskActiveLock.withLock {
                 ensureActive()
                 val httpTts = ReadAloud.httpTTS ?: throw NoStackTraceException("tts is null")
-                contentList.forEachIndexed { index, content ->
-                    ensureActive()
-                    if (index < nowSpeak) return@forEachIndexed
-                    var text = content
-                    if (paragraphStartPos > 0 && index == nowSpeak) {
-                        text = text.substring(paragraphStartPos)
-                    }
-                    val fileName = md5SpeakFileName(text)
-                    val speakText = text.replace(AppPattern.notReadAloudRegex, "")
-                    if (speakText.isEmpty()) {
-                        AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：$text")
-                        createSilentSound(fileName)
-                    } else if (!hasSpeakFile(fileName)) {
-                        runCatching {
-                            val inputStream = getSpeakStream(httpTts, speakText)
-                            if (inputStream != null) {
-                                createSpeakFile(fileName, inputStream)
-                            } else {
-                                createSilentSound(fileName)
-                            }
-                        }.onFailure {
-                            when (it) {
-                                is CancellationException -> Unit
-                                else -> pauseReadAloud()
-                            }
-                            return@execute
-                        }
-                    }
-                    val file = getSpeakFileAsMd5(fileName)
-                    val mediaItem = MediaItem.fromUri(Uri.fromFile(file))
-                    launch(Main) {
-                        exoPlayer.addMediaItem(mediaItem)
-                    }
-                }
-                preDownloadAudios(httpTts)
+//                contentList.forEachIndexed { index, content ->
+//                    ensureActive()
+//                    if (index < nowSpeak) return@forEachIndexed
+//                    var text = content
+//                    if (paragraphStartPos > 0 && index == nowSpeak) {
+//                        text = text.substring(paragraphStartPos)
+//                    }
+//                    val fileName = md5SpeakFileName(text)
+//                    val speakText = text.replace(AppPattern.notReadAloudRegex, "")
+//                    if (speakText.isEmpty()) {
+//                        AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：$text")
+//                        createSilentSound(fileName)
+//                    } else if (!hasSpeakFile(fileName)) {
+//                        runCatching {
+//                            val inputStream = getSpeakStream(httpTts, speakText)
+//                            if (inputStream != null) {
+//                                createSpeakFile(fileName, inputStream)
+//                            } else {
+//                                createSilentSound(fileName)
+//                            }
+//                        }.onFailure {
+//                            when (it) {
+//                                is CancellationException -> Unit
+//                                else -> pauseReadAloud()
+//                            }
+//                            return@execute
+//                        }
+//                    }
+//                    val file = getSpeakFileAsMd5(fileName)
+//                    val mediaItem = MediaItem.fromUri(Uri.fromFile(file))
+//                    launch(Main) {
+//                        exoPlayer.addMediaItem(mediaItem)
+//                    }
+//                }
+//                preDownloadAudios(httpTts)
             }
         }.onError {
             AppLog.put("朗读下载出错\n${it.localizedMessage}", it, true)
@@ -227,27 +227,27 @@ class HttpReadAloudService : BaseReadAloudService(),
                         downloader.download(null)
                     }
                 }
-                contentList.forEachIndexed { index, content ->
-                    ensureActive()
-                    if (index < nowSpeak) return@forEachIndexed
-                    var text = content
-                    if (paragraphStartPos > 0 && index == nowSpeak) {
-                        text = text.substring(paragraphStartPos)
-                    }
-                    val speakText = text.replace(AppPattern.notReadAloudRegex, "")
-                    if (speakText.isEmpty()) {
-                        AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：$speakText")
-                    }
-                    val fileName = md5SpeakFileName(text)
-                    val dataSourceFactory = createDataSourceFactory(httpTts, speakText)
-                    val downloader = createDownloader(dataSourceFactory, fileName)
-                    downloaderChannel.send(downloader)
-                    val mediaSource = createMediaSource(dataSourceFactory, fileName)
-                    launch(Main) {
-                        exoPlayer.addMediaSource(mediaSource)
-                    }
-                }
-                preDownloadAudiosStream(httpTts, downloaderChannel)
+//                contentList.forEachIndexed { index, content ->
+//                    ensureActive()
+//                    if (index < nowSpeak) return@forEachIndexed
+//                    var text = content
+//                    if (paragraphStartPos > 0 && index == nowSpeak) {
+//                        text = text.substring(paragraphStartPos)
+//                    }
+//                    val speakText = text.replace(AppPattern.notReadAloudRegex, "")
+//                    if (speakText.isEmpty()) {
+//                        AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：$speakText")
+//                    }
+//                    val fileName = md5SpeakFileName(text)
+//                    val dataSourceFactory = createDataSourceFactory(httpTts, speakText)
+//                    val downloader = createDownloader(dataSourceFactory, fileName)
+//                    downloaderChannel.send(downloader)
+//                    val mediaSource = createMediaSource(dataSourceFactory, fileName)
+//                    launch(Main) {
+//                        exoPlayer.addMediaSource(mediaSource)
+//                    }
+//                }
+//                preDownloadAudiosStream(httpTts, downloaderChannel)
             }
         }.onError {
             AppLog.put("朗读下载出错\n${it.localizedMessage}", it, true)
@@ -392,8 +392,9 @@ class HttpReadAloudService : BaseReadAloudService(),
     }
 
     private fun md5SpeakFileName(content: String): String {
-        return MD5Utils.md5Encode16(textChapter?.title ?: "") + "_" +
-                MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate-|-$content")
+//        return MD5Utils.md5Encode16(textChapter?.title ?: "") + "_" +
+//                MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate-|-$content")
+        return ""
     }
 
     private fun createSilentSound(fileName: String) {
@@ -425,16 +426,16 @@ class HttpReadAloudService : BaseReadAloudService(),
      * 移除缓存文件
      */
     private fun removeCacheFile() {
-        val titleMd5 = MD5Utils.md5Encode16(textChapter?.title ?: "")
-        FileUtils.listDirsAndFiles(ttsFolderPath)?.forEach {
-            val isSilentSound = it.length() == 2160L
-            if ((!it.name.startsWith(titleMd5)
-                        && System.currentTimeMillis() - it.lastModified() > 600000)
-                || isSilentSound
-            ) {
-                FileUtils.delete(it.absolutePath)
-            }
-        }
+//        val titleMd5 = MD5Utils.md5Encode16(textChapter?.title ?: "")
+//        FileUtils.listDirsAndFiles(ttsFolderPath)?.forEach {
+//            val isSilentSound = it.length() == 2160L
+//            if ((!it.name.startsWith(titleMd5)
+//                        && System.currentTimeMillis() - it.lastModified() > 600000)
+//                || isSilentSound
+//            ) {
+//                FileUtils.delete(it.absolutePath)
+//            }
+//        }
     }
 
 
@@ -460,29 +461,29 @@ class HttpReadAloudService : BaseReadAloudService(),
 
     private fun upPlayPos() {
         playIndexJob?.cancel()
-        val textChapter = textChapter ?: return
-        playIndexJob = lifecycleScope.launch {
-            upTtsProgress(readAloudNumber + 1)
-            if (exoPlayer.duration <= 0) {
-                return@launch
-            }
-            val speakTextLength = contentList[nowSpeak].length
-            if (speakTextLength <= 0) {
-                return@launch
-            }
-            val sleep = exoPlayer.duration / speakTextLength
-            val start = speakTextLength * exoPlayer.currentPosition / exoPlayer.duration
-            for (i in start..contentList[nowSpeak].length) {
-                if (readAloudNumber + i > textChapter.getReadLength(pageIndex + 1)) {
-                    pageIndex++
-                    if (pageIndex < textChapter.pageSize) {
-                        ReadBook.moveToNextPage()
-                        upTtsProgress(readAloudNumber + i.toInt())
-                    }
-                }
-                delay(sleep)
-            }
-        }
+//        val textChapter = textChapter ?: return
+//        playIndexJob = lifecycleScope.launch {
+//            upTtsProgress(readAloudNumber + 1)
+//            if (exoPlayer.duration <= 0) {
+//                return@launch
+//            }
+//            val speakTextLength = contentList[nowSpeak].length
+//            if (speakTextLength <= 0) {
+//                return@launch
+//            }
+//            val sleep = exoPlayer.duration / speakTextLength
+//            val start = speakTextLength * exoPlayer.currentPosition / exoPlayer.duration
+//            for (i in start..contentList[nowSpeak].length) {
+//                if (readAloudNumber + i > textChapter.getReadLength(pageIndex + 1)) {
+//                    pageIndex++
+//                    if (pageIndex < textChapter.pageSize) {
+//                        ReadBook.moveToNextPage()
+//                        upTtsProgress(readAloudNumber + i.toInt())
+//                    }
+//                }
+//                delay(sleep)
+//            }
+//        }
     }
 
     /**
@@ -550,7 +551,7 @@ class HttpReadAloudService : BaseReadAloudService(),
 
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
-        AppLog.put("朗读错误\n${contentList[nowSpeak]}", error)
+//        AppLog.put("朗读错误\n${contentList[nowSpeak]}", error)
         playErrorNo++
         if (playErrorNo >= 5) {
             toastOnUi("朗读连续5次错误, 最后一次错误代码(${error.localizedMessage})")

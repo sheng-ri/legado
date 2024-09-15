@@ -27,6 +27,7 @@ import io.legado.app.R
 import io.legado.app.base.BaseService
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppLog
+import io.legado.app.constant.AppPattern
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.IntentAction
 import io.legado.app.constant.NotificationId
@@ -113,11 +114,6 @@ abstract class BaseReadAloudService : BaseService(),
     private val phoneStateListener by lazy {
         ReadAloudPhoneStateListener()
     }
-    internal var contentList = emptyList<String>()
-    internal var nowSpeak: Int = 0
-    internal var readAloudNumber: Int = 0
-    internal var textChapter: TextChapter? = null
-    internal var pageIndex = 0
     private var needResumeOnAudioFocusGain = false
     private var needResumeOnCallStateIdle = false
     private var registeredPhoneStateListener = false
@@ -129,6 +125,14 @@ abstract class BaseReadAloudService : BaseService(),
     var paragraphStartPos = 0
     var readAloudByPage = false
         private set
+
+    internal var parIndex: Int = 0
+    internal var pageIndex: Int = 0
+    internal var contentList: List<String> = listOf()
+    internal var textChapter: TextChapter? = null
+    internal var chapterStartPos: Int = 0
+    private val currentPar: String
+        get() = contentList[parIndex]
 
     private val broadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -221,43 +225,33 @@ abstract class BaseReadAloudService : BaseService(),
         return super.onStartCommand(intent, flags, startId)
     }
 
+    private fun initContent(pageIndex: Int, startPos: Int) {
+        ReadBook.curTextChapter?.let {
+            if (!it.isCompleted) return
+
+            textChapter = it
+            this@BaseReadAloudService.pageIndex = pageIndex
+            // TODO: 增加按页阅读的需求。
+            readAloudByPage = getPrefBoolean(PreferKey.readAloudByPage)
+            this.chapterStartPos = it.getReadLength(this.pageIndex) + startPos
+            parIndex = it.getParagraphNum(chapterStartPos + 1, readAloudByPage) - 1
+
+            if (parIndex != 0) {
+                it.getLastParagraphPosition()
+            }
+            contentList = it.paragraphs.mapIndexed { i,par ->
+                // 将本段上一页的部分去掉
+                if (i == parIndex && startPos > 0) par.text.substring(startPos)
+                else par.text
+            }
+        }
+    }
+
+
     private fun newReadAloud(play: Boolean, pageIndex: Int, startPos: Int) {
         execute(executeContext = IO) {
-            this@BaseReadAloudService.pageIndex = pageIndex
-            textChapter = ReadBook.curTextChapter
-            val textChapter = textChapter ?: return@execute
-            if (!textChapter.isCompleted) {
-                return@execute
-            }
-            readAloudNumber = textChapter.getReadLength(pageIndex) + startPos
-            readAloudByPage = getPrefBoolean(PreferKey.readAloudByPage)
-            contentList = textChapter.getNeedReadAloud(0, readAloudByPage, 0)
-                .split("\n")
-                .filter { it.isNotEmpty() }
-            var pos = startPos
-            val page = textChapter.getPage(pageIndex)!!
-            if (pos > 0) {
-                for (paragraph in page.paragraphs) {
-                    val tmp = pos - paragraph.length - 1
-                    if (tmp < 0) break
-                    pos = tmp
-                }
-            }
-            nowSpeak = textChapter.getParagraphNum(readAloudNumber + 1, readAloudByPage) - 1
-            if (!readAloudByPage && startPos == 0 && !toLast) {
-                pos = page.chapterPosition -
-                        textChapter.paragraphs[nowSpeak].chapterPosition
-            }
-            if (toLast) {
-                toLast = false
-                readAloudNumber = textChapter.getLastParagraphPosition()
-                nowSpeak = contentList.lastIndex
-                if (page.paragraphs.size == 1) {
-                    pos = page.chapterPosition -
-                            textChapter.paragraphs[nowSpeak].chapterPosition
-                }
-            }
-            paragraphStartPos = pos
+            // 章节变化则重新记录信息
+            initContent(pageIndex, startPos)
             launch(Main) {
                 if (play) play() else pageChanged = true
             }
@@ -317,50 +311,36 @@ abstract class BaseReadAloudService : BaseService(),
     }
 
     private fun prevP() {
-        if (nowSpeak > 0) {
-            playStop()
-            nowSpeak--
-            readAloudNumber -= contentList[nowSpeak].length + 1 + paragraphStartPos
-            paragraphStartPos = 0
-            textChapter?.let {
-                if (readAloudByPage) {
-                    val paragraphs = it.getParagraphs(true)
-                    if (!paragraphs[nowSpeak].isParagraphEnd) readAloudNumber++
-                }
-                if (readAloudNumber < it.getReadLength(pageIndex)) {
-                    pageIndex--
-                    ReadBook.moveToPrevPage()
-                }
+        // 遇到需要跳过的段落，需要继续遍历上个段落
+        do {
+            if (parIndex == 0) {
+                // TODO: TOLAST的作用
+                toLast = true
+                ReadBook.moveToPrevChapter(true)
+            } else {
+                parIndex--;
+                upTtsProgress(parIndex)
             }
-            upTtsProgress(readAloudNumber + 1)
-            play()
-        } else {
-            toLast = true
-            ReadBook.moveToPrevChapter(true)
-        }
+        } while (needSkipPar())
+    }
+
+    internal fun needSkipPar(): Boolean {
+        return currentPar.isBlank() || currentPar.matches(AppPattern.notReadAloudRegex)
     }
 
     private fun nextP() {
-        if (nowSpeak < contentList.size - 1) {
-            playStop()
-            readAloudNumber += contentList[nowSpeak].length.plus(1) - paragraphStartPos
-            paragraphStartPos = 0
-            nowSpeak++
-            textChapter?.let {
-                if (readAloudByPage) {
-                    val paragraphs = it.getParagraphs(true)
-                    if (!paragraphs[nowSpeak].isParagraphEnd) readAloudNumber--
-                }
-                if (readAloudNumber >= it.getReadLength(pageIndex + 1)) {
-                    pageIndex++
+        do {
+            if (parIndex == contentList.size) {
+                nextChapter()
+            } else {
+                parIndex++
+                // TODO: 增加不跟随翻页功能
+                if (chapterStartPos >= textChapter!!.getReadLength(pageIndex + 1)) {
                     ReadBook.moveToNextPage()
                 }
+                upTtsProgress(parIndex)
             }
-            upTtsProgress(readAloudNumber + 1)
-            play()
-        } else {
-            nextChapter()
-        }
+        } while (needSkipPar())
     }
 
     private fun setTimer(minute: Int) {
@@ -433,7 +413,7 @@ abstract class BaseReadAloudService : BaseService(),
         mediaSessionCompat.setPlaybackState(
             PlaybackStateCompat.Builder()
                 .setActions(MediaHelp.MEDIA_SESSION_ACTIONS)
-                .setState(state, nowSpeak.toLong(), 1f)
+                .setState(state, parIndex.toLong(), 1f)
                 .build()
         )
     }
