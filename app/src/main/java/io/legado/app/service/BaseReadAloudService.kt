@@ -176,7 +176,7 @@ abstract class BaseReadAloudService : BaseService(),
             val play = it.getBoolean("play")
             val pageIndex = it.getInt("pageIndex")
             val startPos = it.getInt("startPos")
-            newReadAloud(play, pageIndex, startPos)
+            newReadAloud(play,pageIndex,startPos)
         }
         observeSharedPreferences { _, key ->
             when (key) {
@@ -336,7 +336,6 @@ abstract class BaseReadAloudService : BaseService(),
                 }
                 if (readAloudNumber < it.getReadLength(pageIndex)) {
                     pageIndex--
-                    // TODO: 可能会有BUG
                     if (followAloudFocus()) {
                         ReadBook.moveToPrevPage()
                     }
@@ -366,7 +365,6 @@ abstract class BaseReadAloudService : BaseService(),
                 }
                 if (readAloudNumber >= it.getReadLength(pageIndex + 1)) {
                     pageIndex++
-                    // TODO: 可能导致bug
                     if (followAloudFocus()) {
                         ReadBook.moveToNextPage()
                     }
@@ -375,10 +373,7 @@ abstract class BaseReadAloudService : BaseService(),
             upTtsProgress(readAloudNumber + 1)
             play()
         } else {
-            // TODO: 可能导致bug
-            if (followAloudFocus()) {
-                nextChapter()
-            }
+            nextChapter()
         }
     }
 
@@ -635,6 +630,7 @@ abstract class BaseReadAloudService : BaseService(),
         toLast = false
         if (followAloudFocus()) {
             ReadBook.moveToPrevChapter(true, toLast = false)
+        } else {
         }
     }
 
@@ -647,6 +643,7 @@ abstract class BaseReadAloudService : BaseService(),
             }
         } else if (ReadBook.nextTextChapter == null) {
             stopSelf()
+        } else {
         }
     }
 
