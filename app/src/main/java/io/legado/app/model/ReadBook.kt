@@ -2,6 +2,7 @@ package io.legado.app.model
 
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.PageAnim.scrollPageAnim
+import io.legado.app.constant.PreferKey
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
@@ -24,6 +25,7 @@ import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.ui.book.read.page.provider.LayoutProgressListener
+import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.stackTraceStr
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.CoroutineScope
@@ -396,7 +398,7 @@ object ReadBook : CoroutineScope by MainScope() {
                 val scrollPageAnim = pageAnim() == 3
                 if (scrollPageAnim && pageChanged) {
                     ReadAloud.pause(appCtx)
-                } else {
+                } else if (!appCtx.getPrefBoolean(PreferKey.ignoreAloudFocus)){
                     readAloud(!BaseReadAloudService.pause)
                 }
             }

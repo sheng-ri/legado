@@ -82,6 +82,15 @@ abstract class BaseReadAloudService : BaseService(),
         var timeMinute: Int = 0
             private set
 
+        @JvmStatic
+        var pageIndex: Int = 0
+            internal set
+
+        @JvmStatic
+        var textChapter: TextChapter? = null
+            private set
+
+
         fun isPlay(): Boolean {
             return isRun && !pause
         }
@@ -116,8 +125,6 @@ abstract class BaseReadAloudService : BaseService(),
     internal var contentList = emptyList<String>()
     internal var nowSpeak: Int = 0
     internal var readAloudNumber: Int = 0
-    internal var textChapter: TextChapter? = null
-    internal var pageIndex = 0
     private var needResumeOnAudioFocusGain = false
     private var needResumeOnCallStateIdle = false
     private var registeredPhoneStateListener = false
@@ -223,7 +230,7 @@ abstract class BaseReadAloudService : BaseService(),
 
     private fun newReadAloud(play: Boolean, pageIndex: Int, startPos: Int) {
         execute(executeContext = IO) {
-            this@BaseReadAloudService.pageIndex = pageIndex
+            BaseReadAloudService.pageIndex = pageIndex
             textChapter = ReadBook.curTextChapter
             val textChapter = textChapter ?: return@execute
             if (!textChapter.isCompleted) {
@@ -329,14 +336,20 @@ abstract class BaseReadAloudService : BaseService(),
                 }
                 if (readAloudNumber < it.getReadLength(pageIndex)) {
                     pageIndex--
-                    ReadBook.moveToPrevPage()
+                    // TODO: 可能会有BUG
+                    if (followAloudFocus()) {
+                        ReadBook.moveToPrevPage()
+                    }
                 }
             }
             upTtsProgress(readAloudNumber + 1)
             play()
         } else {
             toLast = true
-            ReadBook.moveToPrevChapter(true)
+            // TODO: 可能会有BUG
+            if (followAloudFocus()) {
+                ReadBook.moveToPrevChapter(true)
+            }
         }
     }
 
@@ -353,13 +366,19 @@ abstract class BaseReadAloudService : BaseService(),
                 }
                 if (readAloudNumber >= it.getReadLength(pageIndex + 1)) {
                     pageIndex++
-                    ReadBook.moveToNextPage()
+                    // TODO: 可能导致bug
+                    if (followAloudFocus()) {
+                        ReadBook.moveToNextPage()
+                    }
                 }
             }
             upTtsProgress(readAloudNumber + 1)
             play()
         } else {
-            nextChapter()
+            // TODO: 可能导致bug
+            if (followAloudFocus()) {
+                nextChapter()
+            }
         }
     }
 
@@ -609,15 +628,24 @@ abstract class BaseReadAloudService : BaseService(),
 
     abstract fun aloudServicePendingIntent(actionStr: String): PendingIntent?
 
+    fun followAloudFocus() =
+        ReadBook.durPageIndex == pageIndex || !getPrefBoolean(PreferKey.ignoreAloudFocus)
+
     open fun prevChapter() {
         toLast = false
-        ReadBook.moveToPrevChapter(true, toLast = false)
+        if (followAloudFocus()) {
+            ReadBook.moveToPrevChapter(true, toLast = false)
+        }
     }
 
     open fun nextChapter() {
         ReadBook.upReadTime()
         AppLog.putDebug("${ReadBook.curTextChapter?.chapter?.title} 朗读结束跳转下一章并朗读")
-        if (!ReadBook.moveToNextChapter(true)) {
+        if (followAloudFocus()) {
+            if (!ReadBook.moveToNextChapter(true)) {
+                stopSelf()
+            }
+        } else if (ReadBook.nextTextChapter == null) {
             stopSelf()
         }
     }

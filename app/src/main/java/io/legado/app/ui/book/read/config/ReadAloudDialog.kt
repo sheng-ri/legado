@@ -90,6 +90,25 @@ class ReadAloudDialog : BaseDialogFragment(R.layout.dialog_read_aloud) {
     }
 
     private fun initEvent() = binding.run {
+
+        hereJumpMenu.run {
+            ivHere.setOnClickListener {
+                ReadBook.readAloud(true)
+            }
+            ivJump.setOnClickListener {
+                if (ReadBook.curTextChapter != BaseReadAloudService.textChapter) {
+                    BaseReadAloudService.textChapter?.let {
+                        ReadBook.openChapter(
+                            it.position,
+                            it.getPage(BaseReadAloudService.pageIndex)!!.chapterPosition
+                        )
+                    }
+                } else {
+                    ReadBook.skipToPage(BaseReadAloudService.pageIndex)
+                }
+            }
+        }
+
         llMainMenu.setOnClickListener {
             callBack?.showMenuBar()
             dismissAllowingStateLoss()
